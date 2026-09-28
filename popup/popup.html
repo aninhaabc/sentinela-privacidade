@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sentinela de Privacidade</title>
+    <link rel="stylesheet" href="popup.css">
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <p class="eyebrow">ANÁLISE DA PÁGINA</p>
+          <h1>Sentinela de Privacidade</h1>
+        </div>
+        <span class="status" aria-label="Extensão ativa">Ativa</span>
+      </header>
+
+      <section class="page-card" aria-labelledby="page-title">
+        <h2 id="page-title">Página atual</h2>
+        <p id="page-name" class="page-name">Carregando...</p>
+        <p id="page-url" class="page-url"></p>
+      </section>
+
+      <section class="empty-state" aria-live="polite">
+        <div class="shield" aria-hidden="true">✓</div>
+        <h2>Extensão carregada</h2>
+        <p>Os indicadores de privacidade serão adicionados nas próximas etapas.</p>
+      </section>
+
+      <footer>
+        <span>Versão 0.1.0</span>
+      </footer>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

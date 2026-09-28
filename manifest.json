@@ -1,0 +1,19 @@
+{
+  "manifest_version": 3,
+  "name": "Sentinela de Privacidade",
+  "version": "0.1.0",
+  "description": "Analisa indicadores de rastreamento e privacidade da página atual.",
+  "permissions": [
+    "tabs"
+  ],
+  "action": {
+    "default_title": "Sentinela de Privacidade",
+    "default_popup": "popup/popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "sentinela-privacidade@insper.edu.br",
+      "strict_min_version": "109.0"
+    }
+  }
+}
