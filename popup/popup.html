@@ -22,14 +22,31 @@
         <p id="page-url" class="page-url"></p>
       </section>
 
-      <section class="empty-state" aria-live="polite">
-        <div class="shield" aria-hidden="true">✓</div>
-        <h2>Extensão carregada</h2>
-        <p>Os indicadores de privacidade serão adicionados nas próximas etapas.</p>
+      <p id="scan-status" class="scan-status" aria-live="polite"></p>
+
+      <section class="metrics" aria-label="Resumo das conexões">
+        <article class="metric-card">
+          <span class="metric-label">Requisições observadas</span>
+          <strong id="total-requests" class="metric-value">0</strong>
+        </article>
+        <article class="metric-card metric-card--warning">
+          <span class="metric-label">Requisições de terceiros</span>
+          <strong id="third-party-requests" class="metric-value">0</strong>
+        </article>
+      </section>
+
+      <section class="domains-card" aria-labelledby="domains-title">
+        <div class="domains-header">
+          <h2 id="domains-title">Domínios de terceiros</h2>
+          <span id="domain-count" class="domain-count">0</span>
+        </div>
+        <ul id="domain-list" class="domain-list">
+          <li class="domain-empty">Nenhum domínio observado.</li>
+        </ul>
       </section>
 
       <footer>
-        <span>Versão 0.1.0</span>
+        <span>Versão 0.2.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>
