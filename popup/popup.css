@@ -11,13 +11,13 @@
 
 body {
   width: 370px;
-  min-height: 490px;
+  min-height: 610px;
   margin: 0;
   background: #f5f7fb;
 }
 
 .app {
-  min-height: 490px;
+  min-height: 610px;
   padding: 22px;
 }
 
@@ -59,7 +59,8 @@ h2 {
 
 .page-card,
 .metric-card,
-.domains-card {
+.domains-card,
+.cookies-card {
   border: 1px solid #e2e7f0;
   border-radius: 14px;
   background: #ffffff;
@@ -134,6 +135,38 @@ h2 {
 .domains-card {
   margin-top: 10px;
   padding: 15px;
+}
+
+.cookies-card {
+  margin-top: 10px;
+  padding: 15px;
+}
+
+.cookie-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cookie-grid div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-radius: 9px;
+  padding: 9px;
+  background: #f5f7fb;
+}
+
+.cookie-grid span {
+  color: #67758d;
+  font-size: 10px;
+}
+
+.cookie-grid strong {
+  color: #172033;
+  font-size: 15px;
 }
 
 .domains-header {

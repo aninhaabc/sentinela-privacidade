@@ -54,7 +54,15 @@ function createReport(pageUrl, observed = false) {
     totalRequests: 0,
     firstPartyRequests: 0,
     thirdPartyRequests: 0,
-    thirdPartyDomains: new Map()
+    thirdPartyDomains: new Map(),
+    cookies: {
+      total: 0,
+      firstParty: 0,
+      thirdParty: 0,
+      session: 0,
+      persistent: 0
+    },
+    observedCookieHeaders: new Set()
   };
 }
 
@@ -66,10 +74,82 @@ function serializeReport(report) {
     totalRequests: report.totalRequests,
     firstPartyRequests: report.firstPartyRequests,
     thirdPartyRequests: report.thirdPartyRequests,
+    cookies: { ...report.cookies },
     thirdPartyDomains: [...report.thirdPartyDomains.entries()]
       .map(([domain, count]) => ({ domain, count }))
       .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
   };
+}
+
+function isCookieDeletion(cookieValue) {
+  const maxAgeMatch = cookieValue.match(/(?:^|;)\s*max-age\s*=\s*(-?\d+)/i);
+  if (maxAgeMatch && Number(maxAgeMatch[1]) <= 0) {
+    return true;
+  }
+
+  const expiresMatch = cookieValue.match(/(?:^|;)\s*expires\s*=\s*([^;]+)/i);
+  if (!expiresMatch) {
+    return false;
+  }
+
+  const expiration = Date.parse(expiresMatch[1]);
+  return Number.isFinite(expiration) && expiration <= Date.now();
+}
+
+function isPersistentCookie(cookieValue) {
+  const maxAgeMatch = cookieValue.match(/(?:^|;)\s*max-age\s*=\s*(-?\d+)/i);
+  if (maxAgeMatch) {
+    return Number(maxAgeMatch[1]) > 0;
+  }
+
+  const expiresMatch = cookieValue.match(/(?:^|;)\s*expires\s*=\s*([^;]+)/i);
+  if (!expiresMatch) {
+    return false;
+  }
+
+  const expiration = Date.parse(expiresMatch[1]);
+  return Number.isFinite(expiration) && expiration > Date.now();
+}
+
+function registerResponseCookies(details) {
+  if (details.tabId < 0) {
+    return;
+  }
+
+  const report = reportsByTab.get(details.tabId);
+  const requestHost = hostnameFromUrl(details.url);
+  if (!report?.pageDomain || !requestHost) {
+    return;
+  }
+
+  const cookieHeaders = (details.responseHeaders || []).filter(
+    (header) => header.name.toLowerCase() === "set-cookie" && header.value
+  );
+
+  cookieHeaders.forEach((header, index) => {
+    const observationKey = `${details.requestId}:${index}:${header.value}`;
+    if (
+      report.observedCookieHeaders.has(observationKey) ||
+      isCookieDeletion(header.value)
+    ) {
+      return;
+    }
+
+    report.observedCookieHeaders.add(observationKey);
+    report.cookies.total += 1;
+
+    if (siteDomain(requestHost) === report.pageDomain) {
+      report.cookies.firstParty += 1;
+    } else {
+      report.cookies.thirdParty += 1;
+    }
+
+    if (isPersistentCookie(header.value)) {
+      report.cookies.persistent += 1;
+    } else {
+      report.cookies.session += 1;
+    }
+  });
 }
 
 browser.webRequest.onBeforeRequest.addListener(
@@ -105,6 +185,12 @@ browser.webRequest.onBeforeRequest.addListener(
     report.thirdPartyDomains.set(requestHost, previousCount + 1);
   },
   { urls: ["<all_urls>"] }
+);
+
+browser.webRequest.onHeadersReceived.addListener(
+  registerResponseCookies,
+  { urls: ["<all_urls>"] },
+  ["responseHeaders"]
 );
 
 browser.tabs.onRemoved.addListener((tabId) => {

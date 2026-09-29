@@ -39,6 +39,11 @@ async function updateReport() {
   document.querySelector("#total-requests").textContent = report.totalRequests;
   document.querySelector("#third-party-requests").textContent = report.thirdPartyRequests;
   document.querySelector("#domain-count").textContent = report.thirdPartyDomains.length;
+  document.querySelector("#cookie-total").textContent = report.cookies.total;
+  document.querySelector("#first-party-cookies").textContent = report.cookies.firstParty;
+  document.querySelector("#third-party-cookies").textContent = report.cookies.thirdParty;
+  document.querySelector("#session-cookies").textContent = report.cookies.session;
+  document.querySelector("#persistent-cookies").textContent = report.cookies.persistent;
   renderDomains(report.thirdPartyDomains);
 
   const scanStatus = document.querySelector("#scan-status");
