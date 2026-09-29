@@ -176,8 +176,27 @@
         <p class="advanced-caption">A pontuação parte de 100 e desconta riscos observados, respeitando o limite de cada categoria.</p>
       </section>
 
+      <section class="blocklist-card" aria-labelledby="blocklist-title">
+        <div class="domains-header">
+          <h2 id="blocklist-title">Lista de bloqueio personalizada</h2>
+          <span id="blocked-request-count" class="domain-count">0</span>
+        </div>
+        <p class="blocklist-caption">O selo mostra as requisições bloqueadas nesta página.</p>
+        <form id="blocklist-form" class="blocklist-form">
+          <label for="blocked-domain">Domínio a bloquear</label>
+          <div>
+            <input id="blocked-domain" type="text" placeholder="exemplo.com" autocomplete="off">
+            <button type="submit">Adicionar</button>
+          </div>
+        </form>
+        <p id="blocklist-feedback" class="blocklist-feedback" aria-live="polite"></p>
+        <ul id="blocklist-domains" class="blocklist-domains">
+          <li class="domain-empty">Nenhum domínio adicionado.</li>
+        </ul>
+      </section>
+
       <footer>
-        <span>Versão 0.8.0</span>
+        <span>Versão 0.9.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>

@@ -158,6 +158,70 @@ function renderPrivacyScore(privacyScore) {
   });
 }
 
+function renderBlockedRequests(blocking) {
+  document.querySelector("#blocked-request-count").textContent = blocking.requests;
+}
+
+function renderBlocklist(domains) {
+  const list = document.querySelector("#blocklist-domains");
+  list.replaceChildren();
+
+  if (!domains.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.className = "domain-empty";
+    emptyItem.textContent = "Nenhum domínio adicionado.";
+    list.append(emptyItem);
+    return;
+  }
+
+  domains.forEach((domain) => {
+    const item = document.createElement("li");
+    const name = document.createElement("span");
+    const remove = document.createElement("button");
+    name.textContent = domain;
+    remove.type = "button";
+    remove.textContent = "Remover";
+    remove.addEventListener("click", async () => {
+      const result = await browser.runtime.sendMessage({
+        type: "REMOVE_BLOCKED_DOMAIN",
+        domain
+      });
+      renderBlocklist(result.domains || []);
+      document.querySelector("#blocklist-feedback").textContent =
+        `${domain} removido da lista.`;
+    });
+    item.append(name, remove);
+    list.append(item);
+  });
+}
+
+async function initializeBlocklist() {
+  const form = document.querySelector("#blocklist-form");
+  const input = document.querySelector("#blocked-domain");
+  const feedback = document.querySelector("#blocklist-feedback");
+  const current = await browser.runtime.sendMessage({ type: "GET_BLOCKLIST" });
+  renderBlocklist(current.domains || []);
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const result = await browser.runtime.sendMessage({
+      type: "ADD_BLOCKED_DOMAIN",
+      domain: input.value
+    });
+
+    if (!result.ok) {
+      feedback.textContent = result.error || "Não foi possível adicionar o domínio.";
+      feedback.classList.add("blocklist-feedback--error");
+      return;
+    }
+
+    feedback.classList.remove("blocklist-feedback--error");
+    feedback.textContent = "Domínio adicionado. Recarregue a página para testar.";
+    input.value = "";
+    renderBlocklist(result.domains || []);
+  });
+}
+
 async function updateReport() {
   if (!activeTab?.id) {
     return;
@@ -189,6 +253,7 @@ async function updateReport() {
   renderAdvancedTracking(report.advancedTracking);
   renderHijacking(report.hijacking);
   renderPrivacyScore(report.privacyScore);
+  renderBlockedRequests(report.blocking);
 
   const scanStatus = document.querySelector("#scan-status");
   if (report.observed) {
@@ -222,3 +287,4 @@ async function initializePopup() {
 }
 
 initializePopup();
+initializeBlocklist().catch(console.error);

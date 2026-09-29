@@ -11,13 +11,13 @@
 
 body {
   width: 370px;
-  min-height: 1740px;
+  min-height: 2050px;
   margin: 0;
   background: #f5f7fb;
 }
 
 .app {
-  min-height: 1740px;
+  min-height: 2050px;
   padding: 22px;
 }
 
@@ -65,7 +65,8 @@ h2 {
 .canvas-card,
 .advanced-card,
 .hijacking-card,
-.score-card {
+.score-card,
+.blocklist-card {
   border: 1px solid #e2e7f0;
   border-radius: 14px;
   background: #ffffff;
@@ -272,6 +273,99 @@ h2 {
 
 .score-breakdown strong {
   color: #354157;
+}
+
+.blocklist-card {
+  margin-top: 10px;
+  padding: 15px;
+}
+
+.blocklist-caption,
+.blocklist-feedback,
+.blocklist-form label {
+  color: #67758d;
+  font-size: 10px;
+}
+
+.blocklist-caption {
+  margin: 9px 0 0;
+}
+
+.blocklist-form {
+  margin-top: 12px;
+}
+
+.blocklist-form label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.blocklist-form div {
+  display: flex;
+  gap: 7px;
+}
+
+.blocklist-form input {
+  min-width: 0;
+  flex: 1;
+  border: 1px solid #d8deea;
+  border-radius: 8px;
+  padding: 8px 9px;
+  color: #172033;
+  font: inherit;
+  font-size: 11px;
+}
+
+.blocklist-form button,
+.blocklist-domains button {
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.blocklist-form button {
+  padding: 8px 10px;
+  background: #273b68;
+  color: #ffffff;
+  font-size: 10px;
+}
+
+.blocklist-feedback {
+  min-height: 14px;
+  margin: 8px 0 0;
+  color: #147a48;
+}
+
+.blocklist-feedback--error {
+  color: #b42318;
+}
+
+.blocklist-domains {
+  max-height: 120px;
+  margin: 5px 0 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.blocklist-domains li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid #edf0f5;
+  padding: 8px 0;
+  color: #354157;
+  font-size: 10px;
+}
+
+.blocklist-domains button {
+  padding: 5px 7px;
+  background: #fff0ee;
+  color: #b42318;
+  font-size: 9px;
 }
 
 .hijacking-summary span {

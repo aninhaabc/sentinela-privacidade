@@ -1,5 +1,6 @@
 const reportsByTab = new Map();
 const redirectChainsByTab = new Map();
+let customBlocklist = new Set();
 
 const TRACKING_QUERY_PARAMETERS = new Set([
   "fbclid",
@@ -62,6 +63,49 @@ function siteDomain(hostname) {
     : lastTwo;
 }
 
+function normalizeBlockedDomain(input) {
+  let value = String(input || "").trim().toLowerCase();
+  if (!value) {
+    return null;
+  }
+
+  value = value.replace(/^\*\./, "");
+
+  try {
+    const url = new URL(value.includes("://") ? value : `https://${value}`);
+    value = url.hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+
+  value = value.replace(/\.$/, "");
+  return /^[a-z0-9](?:[a-z0-9.-]*[a-z0-9])?$/.test(value)
+    ? value
+    : null;
+}
+
+function matchedBlockedDomain(hostname) {
+  return [...customBlocklist].find(
+    (domain) => hostname === domain || hostname.endsWith(`.${domain}`)
+  ) || null;
+}
+
+function serializedBlocklist() {
+  return [...customBlocklist].sort();
+}
+
+async function persistBlocklist() {
+  await browser.storage.local.set({ customBlocklist: serializedBlocklist() });
+}
+
+browser.storage.local.get("customBlocklist").then(({ customBlocklist: saved }) => {
+  customBlocklist = new Set(
+    (Array.isArray(saved) ? saved : [])
+      .map(normalizeBlockedDomain)
+      .filter(Boolean)
+  );
+}).catch(() => {});
+
 function createReport(pageUrl, observed = false) {
   const pageHost = hostnameFromUrl(pageUrl);
 
@@ -108,6 +152,11 @@ function createReport(pageUrl, observed = false) {
       pollingEndpoints: new Map(),
       modifiedGlobals: new Set(),
       injectedScripts: new Set()
+    },
+    blocking: {
+      requests: 0,
+      domains: new Map(),
+      requestIds: new Set()
     }
   };
 }
@@ -380,6 +429,12 @@ function serializeReport(report) {
     storage,
     storageOrigins,
     privacyScore,
+    blocking: {
+      requests: report.blocking.requests,
+      domains: [...report.blocking.domains.entries()]
+        .map(([domain, count]) => ({ domain, count }))
+        .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
+    },
     canvas: {
       detected: report.canvas.readbacks > 0,
       readbacks: report.canvas.readbacks,
@@ -632,6 +687,36 @@ browser.webRequest.onBeforeRequest.addListener(
   { urls: ["<all_urls>"] }
 );
 
+browser.webRequest.onBeforeRequest.addListener(
+  (details) => {
+    if (details.tabId < 0 || details.type === "main_frame") {
+      return {};
+    }
+
+    const requestHost = hostnameFromUrl(details.url);
+    const blockedDomain = requestHost
+      ? matchedBlockedDomain(requestHost)
+      : null;
+    if (!blockedDomain) {
+      return {};
+    }
+
+    const report = reportsByTab.get(details.tabId);
+    if (report && !report.blocking.requestIds.has(details.requestId)) {
+      report.blocking.requestIds.add(details.requestId);
+      report.blocking.requests += 1;
+      report.blocking.domains.set(
+        blockedDomain,
+        (report.blocking.domains.get(blockedDomain) || 0) + 1
+      );
+    }
+
+    return { cancel: true };
+  },
+  { urls: ["<all_urls>"] },
+  ["blocking"]
+);
+
 browser.webRequest.onHeadersReceived.addListener(
   registerResponseCookies,
   { urls: ["<all_urls>"] },
@@ -649,6 +734,35 @@ browser.tabs.onRemoved.addListener((tabId) => {
 });
 
 browser.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === "GET_BLOCKLIST") {
+    return Promise.resolve({ domains: serializedBlocklist() });
+  }
+
+  if (message?.type === "ADD_BLOCKED_DOMAIN") {
+    const domain = normalizeBlockedDomain(message.domain);
+    if (!domain) {
+      return Promise.resolve({ ok: false, error: "Domínio inválido." });
+    }
+
+    customBlocklist.add(domain);
+    return persistBlocklist().then(() => ({
+      ok: true,
+      domains: serializedBlocklist()
+    }));
+  }
+
+  if (message?.type === "REMOVE_BLOCKED_DOMAIN") {
+    const domain = normalizeBlockedDomain(message.domain);
+    if (domain) {
+      customBlocklist.delete(domain);
+    }
+
+    return persistBlocklist().then(() => ({
+      ok: true,
+      domains: serializedBlocklist()
+    }));
+  }
+
   if (message?.type === "STORAGE_REPORT" && Number.isInteger(sender.tab?.id)) {
     if (!reportsByTab.has(sender.tab.id)) {
       reportsByTab.set(sender.tab.id, createReport(sender.tab.url));

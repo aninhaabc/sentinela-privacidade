@@ -1,11 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Sentinela de Privacidade",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Analisa indicadores de rastreamento e privacidade da página atual.",
   "permissions": [
     "tabs",
-    "webRequest"
+    "webRequest",
+    "webRequestBlocking",
+    "storage"
   ],
   "host_permissions": [
     "<all_urls>"
