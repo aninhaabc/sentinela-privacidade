@@ -93,6 +93,41 @@ function renderAdvancedTracking(advancedTracking) {
   });
 }
 
+function renderHijacking(hijacking) {
+  const status = document.querySelector("#hijacking-status");
+  const indicatorList = document.querySelector("#hijacking-indicator-list");
+
+  status.textContent = hijacking.detected ? "Indícios encontrados" : "Sem indícios";
+  status.classList.toggle("detection-status--warning", hijacking.detected);
+  document.querySelector("#hijacking-websockets").textContent = hijacking.webSockets;
+  document.querySelector("#hijacking-polling").textContent = hijacking.polling;
+  document.querySelector("#hijacking-globals").textContent = hijacking.modifiedGlobals.length;
+  document.querySelector("#hijacking-scripts").textContent = hijacking.injectedScripts.length;
+
+  const indicators = [
+    ...hijacking.webSocketHosts.map((host) => `WebSocket: ${host}`),
+    ...hijacking.pollingEndpoints.map(
+      ({ endpoint, count }) => `Polling (${count} req.): ${endpoint}`
+    ),
+    ...hijacking.modifiedGlobals.map((name) => `Objeto alterado: ${name}`),
+    ...hijacking.injectedScripts.map((url) => `Script injetado: ${url}`)
+  ];
+
+  indicatorList.replaceChildren();
+  if (!indicators.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.textContent = "Nenhum indicador observado.";
+    indicatorList.append(emptyItem);
+    return;
+  }
+
+  indicators.forEach((indicator) => {
+    const item = document.createElement("li");
+    item.textContent = indicator;
+    indicatorList.append(item);
+  });
+}
+
 async function updateReport() {
   if (!activeTab?.id) {
     return;
@@ -122,6 +157,7 @@ async function updateReport() {
   renderDomains(report.thirdPartyDomains);
   renderCanvas(report.canvas);
   renderAdvancedTracking(report.advancedTracking);
+  renderHijacking(report.hijacking);
 
   const scanStatus = document.querySelector("#scan-status");
   if (report.observed) {

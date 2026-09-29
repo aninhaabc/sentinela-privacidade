@@ -125,8 +125,37 @@
         </ul>
       </section>
 
+      <section class="hijacking-card" aria-labelledby="hijacking-title">
+        <div class="domains-header">
+          <h2 id="hijacking-title">Indicadores de hijacking/hook</h2>
+          <span id="hijacking-status" class="detection-status">Sem indícios</span>
+        </div>
+        <div class="hijacking-summary">
+          <div>
+            <span>WebSockets de terceiros</span>
+            <strong id="hijacking-websockets">0</strong>
+          </div>
+          <div>
+            <span>Polling persistente</span>
+            <strong id="hijacking-polling">0</strong>
+          </div>
+          <div>
+            <span>Objetos globais alterados</span>
+            <strong id="hijacking-globals">0</strong>
+          </div>
+          <div>
+            <span>Scripts terceiros injetados</span>
+            <strong id="hijacking-scripts">0</strong>
+          </div>
+        </div>
+        <ul id="hijacking-indicator-list" class="canvas-method-list">
+          <li>Nenhum indicador observado.</li>
+        </ul>
+        <p class="advanced-caption">Sinais heurísticos: exigem análise do contexto e do tráfego.</p>
+      </section>
+
       <footer>
-        <span>Versão 0.6.0</span>
+        <span>Versão 0.7.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>

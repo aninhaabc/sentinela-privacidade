@@ -11,13 +11,13 @@
 
 body {
   width: 370px;
-  min-height: 1080px;
+  min-height: 1380px;
   margin: 0;
   background: #f5f7fb;
 }
 
 .app {
-  min-height: 1080px;
+  min-height: 1380px;
   padding: 22px;
 }
 
@@ -63,7 +63,8 @@ h2 {
 .cookies-card,
 .storage-card,
 .canvas-card,
-.advanced-card {
+.advanced-card,
+.hijacking-card {
   border: 1px solid #e2e7f0;
   border-radius: 14px;
   background: #ffffff;
@@ -158,6 +159,40 @@ h2 {
 .advanced-card {
   margin-top: 10px;
   padding: 15px;
+}
+
+.hijacking-card {
+  margin-top: 10px;
+  padding: 15px;
+}
+
+.hijacking-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.hijacking-summary div {
+  border-radius: 9px;
+  padding: 9px;
+  background: #f5f7fb;
+}
+
+.hijacking-summary span,
+.hijacking-summary strong {
+  display: block;
+}
+
+.hijacking-summary span {
+  min-height: 27px;
+  color: #67758d;
+  font-size: 10px;
+}
+
+.hijacking-summary strong {
+  margin-top: 5px;
+  font-size: 15px;
 }
 
 .advanced-summary {

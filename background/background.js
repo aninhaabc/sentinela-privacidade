@@ -38,7 +38,7 @@ const MULTIPART_PUBLIC_SUFFIXES = new Set([
 function hostnameFromUrl(value) {
   try {
     const url = new URL(value);
-    return ["http:", "https:"].includes(url.protocol)
+    return ["http:", "https:", "ws:", "wss:"].includes(url.protocol)
       ? url.hostname.toLowerCase()
       : null;
   } catch {
@@ -101,8 +101,57 @@ function createReport(pageUrl, observed = false) {
       identifierDomains: new Map(),
       endpointSignals: new Set(),
       domains: new Set()
+    },
+    hijacking: {
+      webSocketHosts: new Map(),
+      requestWindows: new Map(),
+      pollingEndpoints: new Map(),
+      modifiedGlobals: new Set(),
+      injectedScripts: new Set()
     }
   };
+}
+
+function canonicalEndpoint(value) {
+  try {
+    const url = new URL(value);
+    return `${url.origin}${url.pathname}`;
+  } catch {
+    return null;
+  }
+}
+
+function registerHijackingNetworkIndicator(report, details, requestHost) {
+  if (!report.pageDomain || siteDomain(requestHost) === report.pageDomain) {
+    return;
+  }
+
+  if (details.type === "websocket") {
+    report.hijacking.webSocketHosts.set(
+      requestHost,
+      (report.hijacking.webSocketHosts.get(requestHost) || 0) + 1
+    );
+    return;
+  }
+
+  if (details.type !== "xmlhttprequest") {
+    return;
+  }
+
+  const endpoint = canonicalEndpoint(details.url);
+  if (!endpoint) {
+    return;
+  }
+
+  const now = Date.now();
+  const recentRequests = (report.hijacking.requestWindows.get(endpoint) || [])
+    .filter((timestamp) => now - timestamp <= 15000);
+  recentRequests.push(now);
+  report.hijacking.requestWindows.set(endpoint, recentRequests);
+
+  if (recentRequests.length >= 3) {
+    report.hijacking.pollingEndpoints.set(endpoint, recentRequests.length);
+  }
 }
 
 function trackingParameter(name, value) {
@@ -281,6 +330,22 @@ function serializeReport(report) {
         .map(([method, count]) => ({ method, count }))
         .sort((a, b) => b.count - a.count || a.method.localeCompare(b.method))
     },
+    hijacking: {
+      detected:
+        report.hijacking.webSocketHosts.size > 0 ||
+        report.hijacking.pollingEndpoints.size > 0 ||
+        report.hijacking.modifiedGlobals.size > 0 ||
+        report.hijacking.injectedScripts.size > 0,
+      webSockets: [...report.hijacking.webSocketHosts.values()]
+        .reduce((total, count) => total + count, 0),
+      webSocketHosts: [...report.hijacking.webSocketHosts.keys()].sort(),
+      polling: report.hijacking.pollingEndpoints.size,
+      pollingEndpoints: [...report.hijacking.pollingEndpoints.entries()]
+        .map(([endpoint, count]) => ({ endpoint, count }))
+        .sort((a, b) => b.count - a.count || a.endpoint.localeCompare(b.endpoint)),
+      modifiedGlobals: [...report.hijacking.modifiedGlobals].sort(),
+      injectedScripts: [...report.hijacking.injectedScripts].sort()
+    },
     advancedTracking: {
       bounce: {
         detected: bounceIntermediates.length > 0,
@@ -358,6 +423,16 @@ function registerCanvasSnapshot(report, message, sender) {
 
   if (message.origin && message.origin !== "null") {
     report.canvas.origins.add(message.origin);
+  }
+}
+
+function registerHijackingEvent(report, message) {
+  if (message.kind === "global-change" && typeof message.name === "string") {
+    report.hijacking.modifiedGlobals.add(message.name);
+  }
+
+  if (message.kind === "third-party-script" && typeof message.url === "string") {
+    report.hijacking.injectedScripts.add(message.url);
   }
 }
 
@@ -488,6 +563,7 @@ browser.webRequest.onBeforeRequest.addListener(
 
     report.totalRequests += 1;
     registerTrackingParameters(report, details);
+    registerHijackingNetworkIndicator(report, details, requestHost);
 
     if (siteDomain(requestHost) === report.pageDomain) {
       report.firstPartyRequests += 1;
@@ -533,6 +609,15 @@ browser.runtime.onMessage.addListener((message, sender) => {
     }
 
     registerCanvasSnapshot(reportsByTab.get(sender.tab.id), message, sender);
+    return Promise.resolve({ received: true });
+  }
+
+  if (message?.type === "HIJACKING_EVENT" && Number.isInteger(sender.tab?.id)) {
+    if (!reportsByTab.has(sender.tab.id)) {
+      reportsByTab.set(sender.tab.id, createReport(sender.tab.url));
+    }
+
+    registerHijackingEvent(reportsByTab.get(sender.tab.id), message);
     return Promise.resolve({ received: true });
   }
 
