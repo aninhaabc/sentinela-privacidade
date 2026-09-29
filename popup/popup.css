@@ -11,13 +11,13 @@
 
 body {
   width: 370px;
-  min-height: 760px;
+  min-height: 880px;
   margin: 0;
   background: #f5f7fb;
 }
 
 .app {
-  min-height: 760px;
+  min-height: 880px;
   padding: 22px;
 }
 
@@ -61,7 +61,8 @@ h2 {
 .metric-card,
 .domains-card,
 .cookies-card,
-.storage-card {
+.storage-card,
+.canvas-card {
   border: 1px solid #e2e7f0;
   border-radius: 14px;
   background: #ffffff;
@@ -146,6 +147,72 @@ h2 {
 .storage-card {
   margin-top: 10px;
   padding: 15px;
+}
+
+.canvas-card {
+  margin-top: 10px;
+  padding: 15px;
+}
+
+.detection-status {
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: #edf1f7;
+  color: #52617a;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.detection-status--warning {
+  background: #fff1dc;
+  color: #9a5100;
+}
+
+.canvas-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.canvas-summary div {
+  border-radius: 9px;
+  padding: 9px;
+  background: #f5f7fb;
+}
+
+.canvas-summary span,
+.canvas-summary strong {
+  display: block;
+}
+
+.canvas-summary span {
+  color: #67758d;
+  font-size: 10px;
+}
+
+.canvas-summary strong {
+  margin-top: 5px;
+  font-size: 15px;
+}
+
+.canvas-method-list {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.canvas-method-list li {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid #edf0f5;
+  padding: 8px 0 0;
+  color: #67758d;
+  font-size: 10px;
+}
+
+.canvas-method-list strong {
+  color: #354157;
 }
 
 .storage-list {

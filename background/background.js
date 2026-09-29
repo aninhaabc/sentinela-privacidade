@@ -63,7 +63,13 @@ function createReport(pageUrl, observed = false) {
       persistent: 0
     },
     observedCookieHeaders: new Set(),
-    storageByOrigin: new Map()
+    storageByOrigin: new Map(),
+    canvas: {
+      readbacks: 0,
+      methods: new Map(),
+      origins: new Set(),
+      snapshots: new Map()
+    }
   };
 }
 
@@ -106,6 +112,14 @@ function serializeReport(report) {
     cookies: { ...report.cookies },
     storage,
     storageOrigins,
+    canvas: {
+      detected: report.canvas.readbacks > 0,
+      readbacks: report.canvas.readbacks,
+      origins: report.canvas.origins.size,
+      methods: [...report.canvas.methods.entries()]
+        .map(([method, count]) => ({ method, count }))
+        .sort((a, b) => b.count - a.count || a.method.localeCompare(b.method))
+    },
     thirdPartyDomains: [...report.thirdPartyDomains.entries()]
       .map(([domain, count]) => ({ domain, count }))
       .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
@@ -122,6 +136,42 @@ function registerStorageSnapshot(report, message) {
     sessionStorageEntries: message.sessionStorageEntries,
     indexedDBDatabases: message.indexedDBDatabases
   });
+}
+
+function registerCanvasSnapshot(report, message, sender) {
+  const snapshotKey = `${sender.frameId ?? 0}:${message.origin || "null"}`;
+  const previous = report.canvas.snapshots.get(snapshotKey) || {
+    readbacks: 0,
+    methods: new Map()
+  };
+
+  const readbacks = Math.max(0, Number(message.readbacks) || 0);
+  report.canvas.readbacks += Math.max(0, readbacks - previous.readbacks);
+
+  const currentMethods = new Map();
+  (message.methods || []).forEach(({ method, count }) => {
+    if (typeof method !== "string") {
+      return;
+    }
+
+    const currentCount = Math.max(0, Number(count) || 0);
+    const previousCount = previous.methods.get(method) || 0;
+    const difference = Math.max(0, currentCount - previousCount);
+    currentMethods.set(method, currentCount);
+    report.canvas.methods.set(
+      method,
+      (report.canvas.methods.get(method) || 0) + difference
+    );
+  });
+
+  report.canvas.snapshots.set(snapshotKey, {
+    readbacks,
+    methods: currentMethods
+  });
+
+  if (message.origin && message.origin !== "null") {
+    report.canvas.origins.add(message.origin);
+  }
 }
 
 function isCookieDeletion(cookieValue) {
@@ -247,6 +297,15 @@ browser.runtime.onMessage.addListener((message, sender) => {
     }
 
     registerStorageSnapshot(reportsByTab.get(sender.tab.id), message);
+    return Promise.resolve({ received: true });
+  }
+
+  if (message?.type === "CANVAS_SNAPSHOT" && Number.isInteger(sender.tab?.id)) {
+    if (!reportsByTab.has(sender.tab.id)) {
+      reportsByTab.set(sender.tab.id, createReport(sender.tab.url));
+    }
+
+    registerCanvasSnapshot(reportsByTab.get(sender.tab.id), message, sender);
     return Promise.resolve({ received: true });
   }
 

@@ -25,6 +25,34 @@ function renderDomains(domains) {
   });
 }
 
+function renderCanvas(canvas) {
+  const status = document.querySelector("#canvas-status");
+  const methodList = document.querySelector("#canvas-method-list");
+
+  status.textContent = canvas.detected ? "Detectado" : "Sem atividade";
+  status.classList.toggle("detection-status--warning", canvas.detected);
+  document.querySelector("#canvas-readbacks").textContent = canvas.readbacks;
+  document.querySelector("#canvas-origins").textContent = canvas.origins;
+  methodList.replaceChildren();
+
+  if (!canvas.methods.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.textContent = "Nenhum método de leitura observado.";
+    methodList.append(emptyItem);
+    return;
+  }
+
+  canvas.methods.forEach(({ method, count }) => {
+    const item = document.createElement("li");
+    const methodName = document.createElement("span");
+    const methodCount = document.createElement("strong");
+    methodName.textContent = method;
+    methodCount.textContent = `${count} vez(es)`;
+    item.append(methodName, methodCount);
+    methodList.append(item);
+  });
+}
+
 async function updateReport() {
   if (!activeTab?.id) {
     return;
@@ -52,6 +80,7 @@ async function updateReport() {
   document.querySelector("#indexed-db-count").textContent =
     `${report.storage.indexedDBDatabases} bancos`;
   renderDomains(report.thirdPartyDomains);
+  renderCanvas(report.canvas);
 
   const scanStatus = document.querySelector("#scan-status");
   if (report.observed) {
