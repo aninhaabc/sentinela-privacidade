@@ -58,8 +58,30 @@
         </div>
       </section>
 
+      <section class="storage-card" aria-labelledby="storage-title">
+        <div class="domains-header">
+          <h2 id="storage-title">Armazenamento HTML5</h2>
+          <span id="storage-origin-count" class="domain-count">0</span>
+        </div>
+        <div class="storage-list">
+          <div>
+            <span>localStorage</span>
+            <strong id="local-storage-count">0 itens</strong>
+          </div>
+          <div>
+            <span>sessionStorage</span>
+            <strong id="session-storage-count">0 itens</strong>
+          </div>
+          <div>
+            <span>IndexedDB</span>
+            <strong id="indexed-db-count">0 bancos</strong>
+          </div>
+        </div>
+        <p class="storage-caption">O selo indica quantas origens armazenaram dados.</p>
+      </section>
+
       <footer>
-        <span>Versão 0.3.0</span>
+        <span>Versão 0.4.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>

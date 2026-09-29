@@ -62,11 +62,40 @@ function createReport(pageUrl, observed = false) {
       session: 0,
       persistent: 0
     },
-    observedCookieHeaders: new Set()
+    observedCookieHeaders: new Set(),
+    storageByOrigin: new Map()
   };
 }
 
 function serializeReport(report) {
+  const storageOrigins = [...report.storageByOrigin.entries()]
+    .map(([origin, storage]) => ({ origin, ...storage }))
+    .sort((a, b) => a.origin.localeCompare(b.origin));
+
+  const storage = storageOrigins.reduce(
+    (totals, origin) => {
+      totals.localStorageEntries += origin.localStorageEntries || 0;
+      totals.sessionStorageEntries += origin.sessionStorageEntries || 0;
+      totals.indexedDBDatabases += origin.indexedDBDatabases || 0;
+
+      if (
+        (origin.localStorageEntries || 0) > 0 ||
+        (origin.sessionStorageEntries || 0) > 0 ||
+        (origin.indexedDBDatabases || 0) > 0
+      ) {
+        totals.originsUsingStorage += 1;
+      }
+
+      return totals;
+    },
+    {
+      localStorageEntries: 0,
+      sessionStorageEntries: 0,
+      indexedDBDatabases: 0,
+      originsUsingStorage: 0
+    }
+  );
+
   return {
     pageUrl: report.pageUrl,
     pageHost: report.pageHost,
@@ -75,10 +104,24 @@ function serializeReport(report) {
     firstPartyRequests: report.firstPartyRequests,
     thirdPartyRequests: report.thirdPartyRequests,
     cookies: { ...report.cookies },
+    storage,
+    storageOrigins,
     thirdPartyDomains: [...report.thirdPartyDomains.entries()]
       .map(([domain, count]) => ({ domain, count }))
       .sort((a, b) => b.count - a.count || a.domain.localeCompare(b.domain))
   };
+}
+
+function registerStorageSnapshot(report, message) {
+  if (!message.origin || message.origin === "null") {
+    return;
+  }
+
+  report.storageByOrigin.set(message.origin, {
+    localStorageEntries: message.localStorageEntries,
+    sessionStorageEntries: message.sessionStorageEntries,
+    indexedDBDatabases: message.indexedDBDatabases
+  });
 }
 
 function isCookieDeletion(cookieValue) {
@@ -197,14 +240,23 @@ browser.tabs.onRemoved.addListener((tabId) => {
   reportsByTab.delete(tabId);
 });
 
-browser.runtime.onMessage.addListener((message) => {
-  if (message?.type !== "GET_TAB_REPORT" || !Number.isInteger(message.tabId)) {
-    return undefined;
+browser.runtime.onMessage.addListener((message, sender) => {
+  if (message?.type === "STORAGE_REPORT" && Number.isInteger(sender.tab?.id)) {
+    if (!reportsByTab.has(sender.tab.id)) {
+      reportsByTab.set(sender.tab.id, createReport(sender.tab.url));
+    }
+
+    registerStorageSnapshot(reportsByTab.get(sender.tab.id), message);
+    return Promise.resolve({ received: true });
   }
 
-  if (!reportsByTab.has(message.tabId)) {
-    reportsByTab.set(message.tabId, createReport(message.pageUrl));
+  if (message?.type === "GET_TAB_REPORT" && Number.isInteger(message.tabId)) {
+    if (!reportsByTab.has(message.tabId)) {
+      reportsByTab.set(message.tabId, createReport(message.pageUrl));
+    }
+
+    return Promise.resolve(serializeReport(reportsByTab.get(message.tabId)));
   }
 
-  return Promise.resolve(serializeReport(reportsByTab.get(message.tabId)));
+  return undefined;
 });

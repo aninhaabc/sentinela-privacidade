@@ -44,6 +44,13 @@ async function updateReport() {
   document.querySelector("#third-party-cookies").textContent = report.cookies.thirdParty;
   document.querySelector("#session-cookies").textContent = report.cookies.session;
   document.querySelector("#persistent-cookies").textContent = report.cookies.persistent;
+  document.querySelector("#storage-origin-count").textContent = report.storage.originsUsingStorage;
+  document.querySelector("#local-storage-count").textContent =
+    `${report.storage.localStorageEntries} itens`;
+  document.querySelector("#session-storage-count").textContent =
+    `${report.storage.sessionStorageEntries} itens`;
+  document.querySelector("#indexed-db-count").textContent =
+    `${report.storage.indexedDBDatabases} bancos`;
   renderDomains(report.thirdPartyDomains);
 
   const scanStatus = document.querySelector("#scan-status");
