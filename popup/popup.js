@@ -53,6 +53,46 @@ function renderCanvas(canvas) {
   });
 }
 
+function renderAdvancedTracking(advancedTracking) {
+  const { bounce, queryParameters, cookieSync } = advancedTracking;
+  const detected =
+    bounce.detected || queryParameters.detected || cookieSync.detected;
+  const status = document.querySelector("#advanced-status");
+  const parameterList = document.querySelector("#tracking-param-list");
+
+  status.textContent = detected ? "Indícios encontrados" : "Sem indícios";
+  status.classList.toggle("detection-status--warning", detected);
+  document.querySelector("#bounce-redirects").textContent = bounce.redirects;
+  document.querySelector("#tracking-param-count").textContent =
+    queryParameters.total;
+  document.querySelector("#cookie-sync-count").textContent =
+    cookieSync.sharedIdentifiers +
+    cookieSync.endpointSignals +
+    cookieSync.bounceRelays;
+
+  document.querySelector("#bounce-chain").textContent = bounce.chain.length > 1
+    ? `Cadeia: ${bounce.chain.join(" → ")}`
+    : "Nenhuma cadeia de redirecionamento.";
+
+  parameterList.replaceChildren();
+  if (!queryParameters.parameters.length) {
+    const emptyItem = document.createElement("li");
+    emptyItem.textContent = "Nenhum parâmetro rastreador observado.";
+    parameterList.append(emptyItem);
+    return;
+  }
+
+  queryParameters.parameters.forEach(({ name, count }) => {
+    const item = document.createElement("li");
+    const parameterName = document.createElement("span");
+    const parameterCount = document.createElement("strong");
+    parameterName.textContent = name;
+    parameterCount.textContent = `${count} vez(es)`;
+    item.append(parameterName, parameterCount);
+    parameterList.append(item);
+  });
+}
+
 async function updateReport() {
   if (!activeTab?.id) {
     return;
@@ -81,6 +121,7 @@ async function updateReport() {
     `${report.storage.indexedDBDatabases} bancos`;
   renderDomains(report.thirdPartyDomains);
   renderCanvas(report.canvas);
+  renderAdvancedTracking(report.advancedTracking);
 
   const scanStatus = document.querySelector("#scan-status");
   if (report.observed) {

@@ -100,8 +100,33 @@
         </ul>
       </section>
 
+      <section class="advanced-card" aria-labelledby="advanced-title">
+        <div class="domains-header">
+          <h2 id="advanced-title">Rastreamento por navegação</h2>
+          <span id="advanced-status" class="detection-status">Sem indícios</span>
+        </div>
+        <div class="advanced-summary">
+          <div>
+            <span>Saltos entre domínios</span>
+            <strong id="bounce-redirects">0</strong>
+          </div>
+          <div>
+            <span>Parâmetros rastreadores</span>
+            <strong id="tracking-param-count">0</strong>
+          </div>
+          <div>
+            <span>Sinais de cookie sync</span>
+            <strong id="cookie-sync-count">0</strong>
+          </div>
+        </div>
+        <p id="bounce-chain" class="advanced-caption">Nenhuma cadeia de redirecionamento.</p>
+        <ul id="tracking-param-list" class="canvas-method-list">
+          <li>Nenhum parâmetro rastreador observado.</li>
+        </ul>
+      </section>
+
       <footer>
-        <span>Versão 0.5.0</span>
+        <span>Versão 0.6.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>

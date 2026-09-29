@@ -1,4 +1,23 @@
 const reportsByTab = new Map();
+const redirectChainsByTab = new Map();
+
+const TRACKING_QUERY_PARAMETERS = new Set([
+  "fbclid",
+  "fb_source",
+  "gclid",
+  "dclid",
+  "msclkid",
+  "ttclid",
+  "mc_eid",
+  "uid",
+  "user_id",
+  "userid",
+  "click_id",
+  "clickid",
+  "client_id",
+  "cid",
+  "isnew"
+]);
 
 const MULTIPART_PUBLIC_SUFFIXES = new Set([
   "com.br",
@@ -69,8 +88,122 @@ function createReport(pageUrl, observed = false) {
       methods: new Map(),
       origins: new Set(),
       snapshots: new Map()
+    },
+    navigationRequestId: null,
+    navigationHosts: pageHost ? [pageHost] : [],
+    trackingParameters: {
+      total: 0,
+      names: new Map(),
+      domains: new Set(),
+      observations: new Set()
+    },
+    cookieSync: {
+      identifierDomains: new Map(),
+      endpointSignals: new Set(),
+      domains: new Set()
     }
   };
+}
+
+function trackingParameter(name, value) {
+  const normalizedName = name.toLowerCase();
+  if (!value) {
+    return false;
+  }
+
+  return (
+    normalizedName.startsWith("utm_") ||
+    normalizedName.startsWith("bounceuid") ||
+    TRACKING_QUERY_PARAMETERS.has(normalizedName)
+  );
+}
+
+function registerMainFrameRedirect(details) {
+  if (details.tabId < 0 || details.type !== "main_frame") {
+    return;
+  }
+
+  const report = reportsByTab.get(details.tabId);
+  const redirectHost = hostnameFromUrl(details.redirectUrl);
+  if (!report || !redirectHost) {
+    return;
+  }
+
+  const chain = [...report.navigationHosts];
+  if (chain.at(-1) !== redirectHost) {
+    chain.push(redirectHost);
+  }
+
+  redirectChainsByTab.set(details.tabId, {
+    chain,
+    nextHost: redirectHost,
+    recordedAt: Date.now()
+  });
+}
+
+function registerTrackingParameters(report, details) {
+  let url;
+  try {
+    url = new URL(details.url);
+  } catch {
+    return;
+  }
+
+  const requestHost = url.hostname.toLowerCase();
+  const requestDomain = siteDomain(requestHost);
+
+  url.searchParams.forEach((value, name) => {
+    if (!trackingParameter(name, value)) {
+      return;
+    }
+
+    const normalizedName = name.toLowerCase();
+    const observationKey =
+      `${details.requestId}:${requestHost}:${normalizedName}:${value}`;
+    if (report.trackingParameters.observations.has(observationKey)) {
+      return;
+    }
+
+    report.trackingParameters.observations.add(observationKey);
+    report.trackingParameters.total += 1;
+    report.trackingParameters.names.set(
+      normalizedName,
+      (report.trackingParameters.names.get(normalizedName) || 0) + 1
+    );
+    report.trackingParameters.domains.add(requestHost);
+
+    if (value.length >= 4) {
+      if (!report.cookieSync.identifierDomains.has(value)) {
+        report.cookieSync.identifierDomains.set(value, new Set());
+      }
+      report.cookieSync.identifierDomains.get(value).add(requestDomain);
+    }
+  });
+
+  const syncPattern = /(?:^|[\/_-])(cookie[-_]?sync|sync|match|partner)(?:[\/_-]|$)/i;
+  if (
+    report.pageDomain &&
+    requestDomain !== report.pageDomain &&
+    syncPattern.test(`${url.pathname}?${url.searchParams.toString()}`)
+  ) {
+    report.cookieSync.endpointSignals.add(details.requestId);
+    report.cookieSync.domains.add(requestHost);
+  }
+}
+
+function registerMainFrame(report, details) {
+  const nextHost = hostnameFromUrl(details.url);
+  if (!nextHost) {
+    return;
+  }
+
+  if (report.navigationHosts.at(-1) !== nextHost) {
+    report.navigationHosts.push(nextHost);
+  }
+
+  report.pageUrl = details.url;
+  report.pageHost = nextHost;
+  report.pageDomain = siteDomain(nextHost);
 }
 
 function serializeReport(report) {
@@ -102,6 +235,34 @@ function serializeReport(report) {
     }
   );
 
+  const navigationChain = [...report.navigationHosts];
+  const hasBounceIdentifier = [...report.trackingParameters.names.keys()].some(
+    (name) =>
+      name === "uid" ||
+      name === "isnew" ||
+      name.startsWith("bounceuid")
+  );
+  const completeBounceIntermediates = navigationChain.length >= 3
+    ? navigationChain.slice(1, -1)
+    : [];
+  // If monitoring starts on the bounce domain, Firefox may expose only the
+  // last redirect. A third-party hop that relays a bounce identifier back to
+  // the destination is still sufficient evidence of bounce tracking.
+  const partialBounceIntermediates =
+    navigationChain.length === 2 &&
+    navigationChain[0] !== navigationChain[1] &&
+    hasBounceIdentifier
+      ? [navigationChain[0]]
+      : [];
+  const bounceIntermediates = completeBounceIntermediates.length > 0
+    ? completeBounceIntermediates
+    : partialBounceIntermediates;
+  const sharedIdentifiers = [...report.cookieSync.identifierDomains.values()]
+    .filter((domains) => domains.size >= 2);
+  const bounceIdentifierRelay =
+    bounceIntermediates.length > 0 &&
+    hasBounceIdentifier;
+
   return {
     pageUrl: report.pageUrl,
     pageHost: report.pageHost,
@@ -119,6 +280,32 @@ function serializeReport(report) {
       methods: [...report.canvas.methods.entries()]
         .map(([method, count]) => ({ method, count }))
         .sort((a, b) => b.count - a.count || a.method.localeCompare(b.method))
+    },
+    advancedTracking: {
+      bounce: {
+        detected: bounceIntermediates.length > 0,
+        redirects: Math.max(0, navigationChain.length - 1),
+        chain: navigationChain,
+        intermediates: bounceIntermediates
+      },
+      queryParameters: {
+        detected: report.trackingParameters.total > 0,
+        total: report.trackingParameters.total,
+        domains: report.trackingParameters.domains.size,
+        parameters: [...report.trackingParameters.names.entries()]
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      },
+      cookieSync: {
+        detected:
+          sharedIdentifiers.length > 0 ||
+          report.cookieSync.endpointSignals.size > 0 ||
+          bounceIdentifierRelay,
+        sharedIdentifiers: sharedIdentifiers.length,
+        endpointSignals: report.cookieSync.endpointSignals.size,
+        bounceRelays: bounceIdentifierRelay ? 1 : 0,
+        domains: report.cookieSync.domains.size
+      }
     },
     thirdPartyDomains: [...report.thirdPartyDomains.entries()]
       .map(([domain, count]) => ({ domain, count }))
@@ -252,7 +439,40 @@ browser.webRequest.onBeforeRequest.addListener(
     }
 
     if (details.type === "main_frame") {
-      reportsByTab.set(details.tabId, createReport(details.url, true));
+      const previousReport = reportsByTab.get(details.tabId);
+      const nextHost = hostnameFromUrl(details.url);
+      const pendingRedirect = redirectChainsByTab.get(details.tabId);
+      const followsRecordedRedirect =
+        pendingRedirect &&
+        pendingRedirect.nextHost === nextHost &&
+        Date.now() - pendingRedirect.recordedAt < 5000;
+
+      if (followsRecordedRedirect) {
+        const report = createReport(details.url, true);
+        report.navigationRequestId = details.requestId;
+        report.navigationHosts = [...pendingRedirect.chain];
+        reportsByTab.set(details.tabId, report);
+        redirectChainsByTab.delete(details.tabId);
+      } else if (
+        !previousReport ||
+        previousReport.navigationRequestId !== details.requestId
+      ) {
+        const report = createReport(details.url, true);
+        report.navigationRequestId = details.requestId;
+
+        if (
+          previousReport?.pageHost &&
+          previousReport.pageHost !== report.pageHost
+        ) {
+          report.navigationHosts.unshift(previousReport.pageHost);
+        }
+
+        reportsByTab.set(details.tabId, report);
+      } else {
+        registerMainFrame(previousReport, details);
+      }
+
+      registerTrackingParameters(reportsByTab.get(details.tabId), details);
       return;
     }
 
@@ -267,6 +487,7 @@ browser.webRequest.onBeforeRequest.addListener(
     }
 
     report.totalRequests += 1;
+    registerTrackingParameters(report, details);
 
     if (siteDomain(requestHost) === report.pageDomain) {
       report.firstPartyRequests += 1;
@@ -286,8 +507,14 @@ browser.webRequest.onHeadersReceived.addListener(
   ["responseHeaders"]
 );
 
+browser.webRequest.onBeforeRedirect.addListener(
+  registerMainFrameRedirect,
+  { urls: ["<all_urls>"] }
+);
+
 browser.tabs.onRemoved.addListener((tabId) => {
   reportsByTab.delete(tabId);
+  redirectChainsByTab.delete(tabId);
 });
 
 browser.runtime.onMessage.addListener((message, sender) => {
