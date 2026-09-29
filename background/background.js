@@ -255,6 +255,54 @@ function registerMainFrame(report, details) {
   report.pageDomain = siteDomain(nextHost);
 }
 
+function calculatePrivacyScore(report, context) {
+  const networkPenalty = Math.min(
+    20,
+    report.thirdPartyDomains.size * 2 + report.thirdPartyRequests * 0.5
+  );
+  const cookiePenalty = Math.min(
+    20,
+    report.cookies.thirdParty * 4 + report.cookies.persistent
+  );
+  const storedEntries =
+    context.storage.localStorageEntries +
+    context.storage.sessionStorageEntries +
+    context.storage.indexedDBDatabases;
+  const storagePenalty = Math.min(
+    10,
+    context.storage.originsUsingStorage * 2 + storedEntries
+  );
+  const canvasPenalty = report.canvas.readbacks > 0 ? 10 : 0;
+  const navigationPenalty = Math.min(
+    20,
+    report.trackingParameters.total +
+      (context.bounceDetected ? 8 : 0) +
+      (context.cookieSyncDetected ? 8 : 0)
+  );
+  const hijackingPenalty = Math.min(
+    20,
+    report.hijacking.webSocketHosts.size * 5 +
+      report.hijacking.pollingEndpoints.size * 6 +
+      report.hijacking.modifiedGlobals.size * 8 +
+      report.hijacking.injectedScripts.size * 2
+  );
+
+  const breakdown = [
+    { key: "network", label: "Conexões externas", penalty: networkPenalty, maximum: 20 },
+    { key: "cookies", label: "Cookies", penalty: cookiePenalty, maximum: 20 },
+    { key: "storage", label: "Armazenamento", penalty: storagePenalty, maximum: 10 },
+    { key: "canvas", label: "Canvas fingerprinting", penalty: canvasPenalty, maximum: 10 },
+    { key: "navigation", label: "Rastreamento por navegação", penalty: navigationPenalty, maximum: 20 },
+    { key: "hijacking", label: "Hijacking e hooks", penalty: hijackingPenalty, maximum: 20 }
+  ].map((item) => ({ ...item, penalty: Math.round(item.penalty) }));
+
+  const totalPenalty = breakdown.reduce((total, item) => total + item.penalty, 0);
+  const value = Math.max(0, 100 - totalPenalty);
+  const rating = value >= 80 ? "Boa" : value >= 60 ? "Atenção" : "Crítica";
+
+  return { value, rating, totalPenalty, breakdown };
+}
+
 function serializeReport(report) {
   const storageOrigins = [...report.storageByOrigin.entries()]
     .map(([origin, storage]) => ({ origin, ...storage }))
@@ -311,6 +359,15 @@ function serializeReport(report) {
   const bounceIdentifierRelay =
     bounceIntermediates.length > 0 &&
     hasBounceIdentifier;
+  const cookieSyncDetected =
+    sharedIdentifiers.length > 0 ||
+    report.cookieSync.endpointSignals.size > 0 ||
+    bounceIdentifierRelay;
+  const privacyScore = calculatePrivacyScore(report, {
+    storage,
+    bounceDetected: bounceIntermediates.length > 0,
+    cookieSyncDetected
+  });
 
   return {
     pageUrl: report.pageUrl,
@@ -322,6 +379,7 @@ function serializeReport(report) {
     cookies: { ...report.cookies },
     storage,
     storageOrigins,
+    privacyScore,
     canvas: {
       detected: report.canvas.readbacks > 0,
       readbacks: report.canvas.readbacks,
@@ -362,10 +420,7 @@ function serializeReport(report) {
           .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
       },
       cookieSync: {
-        detected:
-          sharedIdentifiers.length > 0 ||
-          report.cookieSync.endpointSignals.size > 0 ||
-          bounceIdentifierRelay,
+        detected: cookieSyncDetected,
         sharedIdentifiers: sharedIdentifiers.length,
         endpointSignals: report.cookieSync.endpointSignals.size,
         bounceRelays: bounceIdentifierRelay ? 1 : 0,

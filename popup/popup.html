@@ -154,8 +154,30 @@
         <p class="advanced-caption">Sinais heurísticos: exigem análise do contexto e do tráfego.</p>
       </section>
 
+      <section class="score-card" aria-labelledby="score-title">
+        <div class="score-header">
+          <div>
+            <p class="eyebrow">PONTUAÇÃO DA PÁGINA</p>
+            <h2 id="score-title">Privacidade</h2>
+          </div>
+          <div class="score-value-wrap">
+            <strong id="privacy-score" class="score-value">100</strong>
+            <span>/100</span>
+          </div>
+        </div>
+        <div class="score-meter" aria-hidden="true">
+          <span id="score-meter-fill"></span>
+        </div>
+        <div class="score-rating-row">
+          <span>Classificação</span>
+          <strong id="score-rating">Boa</strong>
+        </div>
+        <ul id="score-breakdown" class="score-breakdown"></ul>
+        <p class="advanced-caption">A pontuação parte de 100 e desconta riscos observados, respeitando o limite de cada categoria.</p>
+      </section>
+
       <footer>
-        <span>Versão 0.7.0</span>
+        <span>Versão 0.8.0</span>
       </footer>
     </main>
     <script src="popup.js"></script>

@@ -128,6 +128,36 @@ function renderHijacking(hijacking) {
   });
 }
 
+function renderPrivacyScore(privacyScore) {
+  const score = document.querySelector("#privacy-score");
+  const rating = document.querySelector("#score-rating");
+  const meter = document.querySelector("#score-meter-fill");
+  const breakdown = document.querySelector("#score-breakdown");
+  const level = privacyScore.value >= 80
+    ? "good"
+    : privacyScore.value >= 60
+      ? "attention"
+      : "critical";
+
+  score.textContent = privacyScore.value;
+  rating.textContent = privacyScore.rating;
+  meter.style.width = `${privacyScore.value}%`;
+  meter.dataset.level = level;
+  score.dataset.level = level;
+  rating.dataset.level = level;
+
+  breakdown.replaceChildren();
+  privacyScore.breakdown.forEach(({ label, penalty, maximum }) => {
+    const item = document.createElement("li");
+    const category = document.createElement("span");
+    const deduction = document.createElement("strong");
+    category.textContent = label;
+    deduction.textContent = `−${penalty} / ${maximum}`;
+    item.append(category, deduction);
+    breakdown.append(item);
+  });
+}
+
 async function updateReport() {
   if (!activeTab?.id) {
     return;
@@ -158,6 +188,7 @@ async function updateReport() {
   renderCanvas(report.canvas);
   renderAdvancedTracking(report.advancedTracking);
   renderHijacking(report.hijacking);
+  renderPrivacyScore(report.privacyScore);
 
   const scanStatus = document.querySelector("#scan-status");
   if (report.observed) {
